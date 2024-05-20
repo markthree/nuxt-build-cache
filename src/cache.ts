@@ -7,15 +7,11 @@ import type { Nuxt } from "@nuxt/schema";
 import { createTar, parseTar } from "nanotar";
 import { hash, murmurHash, objectHash } from "ohash";
 import { consola, readFilesRecursive } from "./utils";
-import { provider, type ProviderName } from "std-env";
+import { provider } from "std-env";
 
 type HashSource = { name: string; data: any };
 type Hashes = { hash: string; sources: HashSource[] };
-
-const cacheDirs: Partial<Record<ProviderName, string>> & { default: string } = {
-  default: "node_modules/.cache/nuxt/builds",
-  cloudflare_pages: ".next/cache/nuxt",
-};
+type Options = { cacheDir: string }
 
 export async function getHashes(nuxt: Nuxt): Promise<Hashes> {
   if ((nuxt as any)._buildHash) {
@@ -93,11 +89,11 @@ export async function getHashes(nuxt: Nuxt): Promise<Hashes> {
   return res;
 }
 
-export async function getCacheStore(nuxt: Nuxt) {
+export async function getCacheStore(nuxt: Nuxt, options: Options) {
   const hashes = await getHashes(nuxt);
   const cacheDir = join(
     nuxt.options.workspaceDir,
-    cacheDirs[provider] || cacheDirs.default,
+    options.cacheDir,
     hashes.hash
   );
   const cacheFile = join(cacheDir, "nuxt.tar");
@@ -108,8 +104,8 @@ export async function getCacheStore(nuxt: Nuxt) {
   };
 }
 
-export async function collectBuildCache(nuxt: Nuxt) {
-  const { cacheDir, cacheFile, hashes } = await getCacheStore(nuxt);
+export async function collectBuildCache(nuxt: Nuxt, options: Options) {
+  const { cacheDir, cacheFile, hashes } = await getCacheStore(nuxt, options);
   await mkdir(cacheDir, { recursive: true });
   await writeFile(
     join(cacheDir, "hashes.json"),
@@ -134,8 +130,8 @@ export async function collectBuildCache(nuxt: Nuxt) {
   );
 }
 
-export async function restoreBuildCache(nuxt: Nuxt): Promise<boolean> {
-  const { cacheFile, cacheDir } = await getCacheStore(nuxt);
+export async function restoreBuildCache(nuxt: Nuxt, options: Options): Promise<boolean> {
+  const { cacheFile, cacheDir } = await getCacheStore(nuxt, options);
   if (!existsSync(cacheFile)) {
     consola.info(`No build cache found \n  - in \`${cacheFile}\``);
     return false;
